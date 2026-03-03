@@ -92,6 +92,39 @@ Resources:
       CloudWatchLogsLogGroupArn: !GetAtt CloudTrailLogGroup.Arn
       CloudWatchLogsRoleArn: !GetAtt CloudTrailCloudWatchRole.Arn
       EnableLogFileValidation: true
+  # ---- Metric Filter: Unauthorized API Calls ----
+  UnauthorizedApiCallsFilter:
+    Type: AWS::Logs::MetricFilter
+    Properties:
+      LogGroupName: !Ref CloudTrailLogGroup
+      FilterPattern: '{ ($.errorCode = "*UnauthorizedAccess*") || ($.errorCode = "AccessDenied*") }'
+      MetricTransformations:
+        - MetricNamespace: CloudTrailMetrics
+          MetricName: UnauthorizedApiCallCount
+          MetricValue: '1'
+
+  # ---- Metric Filter: Root Account Usage ----
+  RootAccountUsageFilter:
+    Type: AWS::Logs::MetricFilter
+    Properties:
+      LogGroupName: !Ref CloudTrailLogGroup
+      FilterPattern: '{ ($.userIdentity.type = "Root") && ($.userIdentity.invokedBy NOT EXISTS) && ($.eventType != "AwsServiceEvent") }'
+      MetricTransformations:
+        - MetricNamespace: CloudTrailMetrics
+          MetricName: RootAccountUsageCount
+          MetricValue: '1'
+
+  # ---- Metric Filter: Console Login Without MFA ----
+  NoMfaConsoleLoginFilter:
+    Type: AWS::Logs::MetricFilter
+    Properties:
+      LogGroupName: !Ref CloudTrailLogGroup
+      FilterPattern: '{ ($.eventName = "ConsoleLogin") && ($.additionalEventData.MFAUsed != "Yes") }'
+      MetricTransformations:
+        - MetricNamespace: CloudTrailMetrics
+          MetricName: NoMfaConsoleLoginCount
+          MetricValue: '1'
+
 
 Outputs:
   CloudTrailBucketName:
