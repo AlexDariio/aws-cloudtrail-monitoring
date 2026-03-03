@@ -1,5 +1,5 @@
 AWSTemplateFormatVersion: '2010-09-09'
-Description: 'Project 2 - CloudTrail + CloudWatch Monitoring'
+Description: 'CloudTrail + CloudWatch Security Monitoring'
 
 Parameters:
   AlertEmail:
@@ -50,7 +50,56 @@ Resources:
               StringEquals:
                 's3:x-amz-acl': 'bucket-owner-full-control'
 
+  # ---- IAM Role for CloudTrail to write to CloudWatch ----
+  CloudTrailCloudWatchRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: CloudTrail-CloudWatch-Role
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: cloudtrail.amazonaws.com
+            Action: 'sts:AssumeRole'
+      Policies:
+        - PolicyName: CloudTrailToCloudWatch
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - 'logs:CreateLogStream'
+                  - 'logs:PutLogEvents'
+                Resource: '*'
+
+  # ---- CloudWatch Log Group ----
+  CloudTrailLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: /aws/cloudtrail/monitoring
+      RetentionInDays: 30
+
+  # ---- CloudTrail ----
+  MonitoringTrail:
+    Type: AWS::CloudTrail::Trail
+    DependsOn: CloudTrailBucketPolicy
+    Properties:
+      TrailName: security-monitoring-trail
+      IsLogging: true
+      IsMultiRegionTrail: false
+      S3BucketName: !Ref CloudTrailBucket
+      CloudWatchLogsLogGroupArn: !GetAtt CloudTrailLogGroup.Arn
+      CloudWatchLogsRoleArn: !GetAtt CloudTrailCloudWatchRole.Arn
+      EnableLogFileValidation: true
+
 Outputs:
   CloudTrailBucketName:
     Value: !Ref CloudTrailBucket
     Description: 'S3 bucket storing CloudTrail logs'
+  CloudTrailArn:
+    Value: !GetAtt MonitoringTrail.Arn
+    Description: 'CloudTrail trail ARN'
+  LogGroupName:
+    Value: !Ref CloudTrailLogGroup
+    Description: 'CloudWatch Log Group for CloudTrail'
