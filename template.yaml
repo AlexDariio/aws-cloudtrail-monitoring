@@ -125,6 +125,71 @@ Resources:
           MetricName: NoMfaConsoleLoginCount
           MetricValue: '1'
 
+# ---- SNS Topic for Alerts ----
+  SecurityAlertTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      TopicName: security-alerts
+      DisplayName: AWS Security Alerts
+
+  SecurityAlertSubscription:
+    Type: AWS::SNS::Subscription
+    Properties:
+      TopicArn: !Ref SecurityAlertTopic
+      Protocol: email
+      Endpoint: !Ref AlertEmail
+
+# ---- Alarm: Unauthorized API Calls ----
+  UnauthorizedApiCallsAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: Unauthorized-API-Calls
+      AlarmDescription: 'Alert when unauthorized API calls are detected'
+      Namespace: CloudTrailMetrics
+      MetricName: UnauthorizedApiCallCount
+      Statistic: Sum
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 1
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: notBreaching
+      AlarmActions:
+        - !Ref SecurityAlertTopic
+
+  # ---- Alarm: Root Account Usage ----
+  RootAccountUsageAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: Root-Account-Usage
+      AlarmDescription: 'Alert when root account is used'
+      Namespace: CloudTrailMetrics
+      MetricName: RootAccountUsageCount
+      Statistic: Sum
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 1
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: notBreaching
+      AlarmActions:
+        - !Ref SecurityAlertTopic
+
+  # ---- Alarm: Console Login Without MFA ----
+  NoMfaConsoleLoginAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: No-MFA-Console-Login
+      AlarmDescription: 'Alert when console login without MFA is detected'
+      Namespace: CloudTrailMetrics
+      MetricName: NoMfaConsoleLoginCount
+      Statistic: Sum
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 1
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: notBreaching
+      AlarmActions:
+        - !Ref SecurityAlertTopic
+
 
 Outputs:
   CloudTrailBucketName:
@@ -136,3 +201,6 @@ Outputs:
   LogGroupName:
     Value: !Ref CloudTrailLogGroup
     Description: 'CloudWatch Log Group for CloudTrail'
+  SNSTopicArn:
+    Value: !Ref SecurityAlertTopic
+    Description: 'SNS topic for security alerts'
