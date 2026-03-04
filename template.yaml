@@ -139,7 +139,7 @@ Resources:
       Protocol: email
       Endpoint: !Ref AlertEmail
 
-   # ---- Alarm: Unauthorized API Calls ----
+  # ---- Alarm: Unauthorized API Calls ----
   UnauthorizedApiCallsAlarm:
     Type: AWS::CloudWatch::Alarm
     Properties:
@@ -156,7 +156,7 @@ Resources:
       AlarmActions:
         - !Ref SecurityAlertTopic
 
-    # ---- Alarm: Root Account Usage ----
+  # ---- Alarm: Root Account Usage ----
   RootAccountUsageAlarm:
     Type: AWS::CloudWatch::Alarm
     Properties:
@@ -190,7 +190,7 @@ Resources:
       AlarmActions:
         - !Ref SecurityAlertTopic
 
-# ---- CloudWatch Dashboard ----
+  # ---- CloudWatch Dashboard ----
   SecurityDashboard:
     Type: AWS::CloudWatch::Dashboard
     Properties:
