@@ -9,6 +9,7 @@ This is a step-by-step guide to building and deploying a security monitoring and
 This guide is intended for anyone looking to learn AWS security monitoring hands-on — whether you're pursuing a career in cloud computing, cloud security, or DevOps, or simply want to understand how real-world cloud monitoring works. The assumption is that you have basic familiarity with AWS services like S3, IAM, CloudWatch, and the AWS CLI. Step-by-step deployment instructions are provided so you can follow along even if you're still learning.
 
 ## Architecture Overview
+![Architecture Diagram](demos/cloudtrail-monitoring.png)
 
 
 ### What Each Component Does
@@ -100,7 +101,7 @@ git --version
 - Sign up at https://aws.amazon.com if you don't have one
 - This will be your root account (the main admin account)
 
-### 2. Create an IAM User
+### 2. Create an IAM User and Set IAM User Policy
 
 Don't use your root account for daily work — create a separate user:
 
@@ -109,7 +110,7 @@ Don't use your root account for daily work — create a separate user:
 3. Click **Users** → **Create user**
 4. Enter a username (e.g., your-name) and click **Next**
 5. Select **Attach policies directly**
-6. Search for **AdministratorAccess**, check the box, and click **Next**
+6. Search for **AdministratorAccess**, check the box, scroll down, and click **Next**
 7. Click **Create user**
 
 ### 3. Create an Access Key
@@ -122,14 +123,14 @@ This is what lets your terminal talk to AWS:
 4. Select **Command Line Interface (CLI)** and click **Next**
 5. (Optional) Add a Set Description Tag (e.g., For Security Monitoring)
 6. Click **Create access key**
+7. Save both keys
+   - Copy the **Access Key ID**
+   - Copy the **Secret Access Key**
 
 ⚠️ **Important:** This is the only time you will be able to see or download your Secret Access Key. If you lose it, you cannot recover it — you will need to delete the old key and create a new one. Save both keys somewhere safe before closing this page.
 
 ⚠️ **Important:** Never share your access keys with anyone or push them to GitHub.
 
-7. Save both keys
-   - Copy the **Access Key ID**
-   - Copy the **Secret Access Key**
 
 ### 4. Configure AWS CLI
 
@@ -143,8 +144,8 @@ You will be asked for:
 
 - **AWS Access Key ID** — paste the Access Key ID from Step 3
 - **AWS Secret Access Key** — paste the Secret Access Key from Step 3
-- **Default region** — `us-east-1`
-- **Default output format** — `json`
+- **Default region** — `us-east-1` — If shown hit enter
+- **Default output format** — `json` If shown hit enter again
 
 ### 5. Verify AWS Access
 
@@ -162,8 +163,8 @@ You should see output similar to:
 }
 ```
 
-- `Account` — Should match the account number shown in the top right of your AWS Console
-- `Arn` — Should match User → Summary → ARN
+- `Account` — Should match the **Account Number** shown in the top right of your AWS Console
+- `Arn` — Should match **User** → **UserName** → **Summary** → **ARN**
 
 If you get an access denied error, go back to Step 2 and verify your user has **AdministratorAccess** permissions.
 
@@ -181,7 +182,6 @@ If you get an access denied error, go back to Step 2 and verify your user has **
 ## How to Deploy
 
 ### Step 1: Clone the Repository
-
 ```bash
 # Navigate to the directory where you want this to be saved
 cd your/preferred/folder
@@ -189,9 +189,16 @@ cd your/preferred/folder
 # Download the repo to your computer
 git clone https://github.com/Alexdariio/aws-cloudtrail-monitoring.git
 
+# Verify the repo was downloaded
+ls aws-cloudtrail-monitoring
+
+# Verify the repo was downloaded 
+The 'aws-cloudtrail-monitoring' Repo should appear
+
 # Move into the folder
 cd aws-cloudtrail-monitoring
 ```
+
 
 ### Step 2: Deploy the CloudFormation Stack
 
@@ -217,6 +224,8 @@ aws cloudformation describe-stacks --stack-name monitoring-stack --query 'Stacks
 Run this command every 30–60 seconds until the output changes from `"CREATE_IN_PROGRESS"` to `"CREATE_COMPLETE"`. This may take a few minutes.
 
 > **To verify on the AWS console:** Go to **CloudWatch** → **Logs** → **Log management** → Click on `/aws/cloudtrail/monitoring` log group → **Metric filters** tab — you should see 3 metric filters listed.
+>
+> As shown in the [Metric Filters](#metric-filters--security-event-detection) section. 
 
 ### Step 3: Confirm the SNS Email Subscription
 
@@ -227,11 +236,11 @@ Run this command every 30–60 seconds until the output changes from `"CREATE_IN
 
 > **To verify in the console:**
 > - Go to **CloudWatch** → **Alarms** (left sidebar) — you should see 3 alarms. They may show **INSUFFICIENT_DATA** (orange) instead of OK — this is normal and just means no matching events have come in yet.
-> - If you see a warning state, don't worry — it's because you haven't confirmed the SNS email subscription yet. Once you confirm, the alarms will function normally.
-> - Search for **Amazon SNS** in the search bar → **Topics** → `security-alerts` topic should show 1 confirmed subscription after you click the confirm link in your email.
+> - If you see the Alarms Actions in a **Warning** state, don't worry — it's because you haven't confirmed the SNS email subscription yet. Once you confirm, the alarms will function normally.
+> - Search for **Simple Notification Service** in the search bar → **Topics** → `security-alerts` topic should show 1 confirmed subscription after you click the confirm link in your email.
 
 ⚠️ **SideNote:**
-> **Why is Alarms in "in alarm" state?** If you're logged into the AWS Console using your root account (the account you created when you first signed up for AWS), every action you take generates API calls that CloudTrail detects as root account usage — which is exactly what this filter is designed to catch. This means your pipeline is working correctly. To resolve it, create an IAM user with AdministratorAccess (see the [Setup](#2-create-an-iam-user) section) and use that instead of root. The alarm will return to OK after 5 minutes once root activity stops.
+> Why is **Alarms** in **CloudWatch** in "in alarm" state? If you're logged into the AWS Console using your root account (the account you created when you first signed up for AWS), every action you take generates API calls that CloudTrail detects as root account usage — which is exactly what this filter is designed to catch. This means your pipeline is working correctly. To resolve it, create an IAM user with AdministratorAccess (see the [Create an IAM User](#2-create-an-iam-user-and-set-iam-user-policy) section) and use that instead of root. The alarm will return to OK after 5 minutes once root activity stops.
 
 
 ### Step 4: Wait for CloudTrail to Start Logging
@@ -257,20 +266,22 @@ aws logs describe-log-streams \
   --query 'logStreams[*].logStreamName'
 ```
 
-You should see one or more log stream names listed.
+You should see Three stream names listed.
 
 **CloudWatch Alarms:**
 ```bash
 # Check alarm states
+
 aws cloudwatch describe-alarms \
   --query 'MetricAlarms[*].[AlarmName,StateValue]' --output table
 ```
 
-All three alarms should show `OK` state.
+All three alarms should show `OK` state. If `Root-Account-Usage` shows `ALARM`, that's expected — it means you're still logged into the console with your root account.
 
 **SNS Subscription:**
 ```bash
 # Verify your email subscription is confirmed
+
 aws sns list-subscriptions-by-topic \
   --topic-arn $(aws cloudformation describe-stacks --stack-name monitoring-stack \
     --query 'Stacks[0].Outputs[?OutputKey==`SNSTopicArn`].OutputValue' --output text) \
@@ -283,13 +294,15 @@ Your email should show with a confirmed ARN (not `PendingConfirmation`).
 
 Go to **CloudWatch** → **Dashboards** → **Security-Monitoring-Dashboard** in the AWS Console. You should see three metric graphs and an alarm status widget.
 
-> **Note:** The dashboard is configured to display the three default security filters included in this template. If you added, removed, or renamed any metric filters or alarms, update the `"metrics"` and `"alarms"` sections in the CloudWatch Dashboard JSON to match your setup.
+> **Reminder:** The dashboard included in this template is configured for the three default security filters in this repo. If you customized the metric filters or alarms before deploying, make sure to update the `"metrics"` and `"alarms"` sections in the CloudWatch Dashboard JSON in `template.yaml` to match your changes.
+> 
 ### Step 6: Test the Alarms
 
 To trigger an unauthorized API call alert:
 
 ```bash
 # This will generate an AccessDenied event in CloudTrail
+
 aws s3 ls s3://some-bucket-that-doesnt-exist-12345
 ```
 
@@ -377,6 +390,24 @@ aws cloudformation list-stacks \
 ```
 
 The `monitoring-stack` should not appear in this list. If the table is empty, everything has been successfully cleaned up.
+
+### Step 4: Remove AWS Credentials (Optional)
+
+If you're done working with AWS and want to remove your credentials from your computer Run:
+```bash
+rm ~/.aws/credentials
+```
+
+To verify your credentials were removed:
+```bash
+aws sts get-caller-identity
+```
+
+If it returns an error like `Unable to locate credentials`, your credentials have been successfully removed.
+
+This removes your access keys from your machine. Next time you need to use AWS, just run `aws configure` again to set them up.
+
+⚠️ **Important:** This does not delete your AWS account or IAM user — it only removes the credentials stored on your local machine.
 
 Also verify manually in the console:
 
